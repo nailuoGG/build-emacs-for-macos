@@ -440,6 +440,10 @@ class Build
     @supports_xwidgets ||= !!configure_help.match(/\s+--with-xwidgets\s+/)
   end
 
+  def supports_mps?
+    @supports_mps ||= !!configure_help.match(/\s+--with-mps\s+/)
+  end
+
   def supports_tree_sitter?
     @supports_tree_sitter ||=
       !!configure_help.match(/\s+--with-tree-sitter(\s|=).+/)
@@ -669,6 +673,19 @@ class Build
       ]
       if options[:xwidgets] && supports_xwidgets?
         configure_flags << '--with-xwidgets'
+      end
+      if options[:mps] && supports_mps?
+        # Add MPS include and library paths
+        mps_artifacts = File.join(brew_dir, 'opt/libmps')
+        ENV['CPPFLAGS'] =
+          [ENV.fetch('CPPFLAGS', nil),
+           "-I#{mps_artifacts}/include"].compact.join(' ')
+
+        ENV['LDFLAGS'] =
+          [ENV.fetch('LDFLAGS', nil), "-L#{mps_artifacts}/lib",
+           '-lmps'].compact.join(' ')
+
+        configure_flags << "--with-mps=#{options[:mps]}"
       end
       if options[:tree_sitter] && supports_tree_sitter?
         configure_flags << '--with-tree-sitter'
@@ -1961,6 +1978,13 @@ class CLIOptions
         'Enable/disable tree-sitter if supported ' \
         '(default: enabled)'
       ) { |v| options[:tree_sitter] = v }
+
+      opts.on(
+        '--with-mps=MODE',
+        %w[yes debug no],
+        'Enable MPS support with MODE (yes, debug, or no) ' \
+        '(default: no MPS support)'
+      ) { |v| options[:mps] = v }
 
       opts.on(
         '--[no-]native-comp',
